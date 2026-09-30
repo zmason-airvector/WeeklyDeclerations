@@ -19,12 +19,14 @@ export function MeetingHandover({
   loading,
   onChange,
   onSubmit,
+  onExit,
 }: {
   due: DueMeeting;
   value: MeetingDay | null;
   loading?: boolean;
   onChange: (next: Partial<MeetingDay>) => void;
   onSubmit: () => void;
+  onExit: () => void;
 }) {
   const when = formatLong(formatDueDate(due.weekStart, due.day));
   const time = MEETING_TRIGGERS[due.shift].label;
@@ -34,7 +36,16 @@ export function MeetingHandover({
     <div className="meeting-popup no-print" role="dialog" aria-modal="true">
       <div className={`meeting-popup-card shift-theme-${due.shift}`}>
         <header className={`meeting-popup-banner shift-${due.shift}`}>
-          <p className="kicker">Transfert de quart / Shift change</p>
+          <div className="meeting-popup-banner-top">
+            <p className="kicker">Transfert de quart / Shift change</p>
+            <button
+              type="button"
+              className="meeting-popup-exit"
+              onClick={onExit}
+            >
+              Quitter / Exit
+            </button>
+          </div>
           <h2>
             {SHIFT_META[due.shift].icon} {SHIFT_META[due.shift].fr}{" "}
             <small>{SHIFT_META[due.shift].en}</small>

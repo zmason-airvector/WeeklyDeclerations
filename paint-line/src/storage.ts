@@ -83,6 +83,21 @@ async function writeLocal(report: WeeklyReport, savedAt: string): Promise<void> 
   localStorage.setItem(LAST_WEEK_KEY, report.weekStart);
 }
 
+async function clearLocal(weekStart: string): Promise<void> {
+  try {
+    const db = await openDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).delete(weekStart);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  } catch {
+    // ignore
+  }
+}
+
 const REMOTE_LOAD_TIMEOUT_MS = 8_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -139,7 +154,14 @@ async function loadReportInner(weekStart: string): Promise<WeeklyReport> {
     // Re-read after the network call. A submit may have landed while we waited,
     // and writing the older remote row back would reopen that form.
     const freshLocal = (await readLocal(weekStart)) ?? local;
-    if (!remote) return freshLocal?.report ?? emptyReport(weekStart);
+    if (!remote) {
+      const fresh = emptyReport(weekStart);
+      if (supabase) {
+        await clearLocal(weekStart);
+        return fresh;
+      }
+      return freshLocal?.report ?? fresh;
+    }
     const newer =
       freshLocal && freshLocal.savedAt > remote.updatedAt
         ? freshLocal.report

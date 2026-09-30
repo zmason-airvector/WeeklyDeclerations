@@ -18,12 +18,14 @@ export function RepaintHandover({
   loading,
   onChange,
   onSubmit,
+  onExit,
 }: {
   due: DueSlot;
   value: RepaintDay | null;
   loading?: boolean;
   onChange: (next: RepaintDay) => void;
   onSubmit: () => void;
+  onExit: () => void;
 }) {
   const when = formatLong(formatDueDate(due.weekStart, due.day));
   const time = REPAINT_TRIGGERS[due.shift].label;
@@ -33,7 +35,16 @@ export function RepaintHandover({
     <div className="meeting-popup no-print" role="dialog" aria-modal="true">
       <div className={`meeting-popup-card shift-theme-${due.shift}`}>
         <header className={`meeting-popup-banner shift-${due.shift}`}>
-          <p className="kicker">Fin de quart / End of shift</p>
+          <div className="meeting-popup-banner-top">
+            <p className="kicker">Fin de quart / End of shift</p>
+            <button
+              type="button"
+              className="meeting-popup-exit"
+              onClick={onExit}
+            >
+              Quitter / Exit
+            </button>
+          </div>
           <h2>
             {SHIFT_META[due.shift].icon} {SHIFT_META[due.shift].fr}{" "}
             <small>{SHIFT_META[due.shift].en}</small>

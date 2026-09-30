@@ -54,15 +54,24 @@ type PendingSubmit =
 
 type SlotChoice = DueSlot & { pendingLoad?: boolean };
 
+export type PopupKind = "repaint" | "meeting";
+
+export function popupDismissKey(kind: PopupKind, slot: DueSlot): string {
+  return `${kind}:${slot.weekStart}:${slot.shift}:${slot.day}`;
+}
+
 function firstOpenSlot(
   candidates: DueSlot[],
   weekStart: string,
   report: WeeklyReport,
   handover: WeeklyReport | null,
   blockedWeeks: readonly string[],
+  dismissed: ReadonlySet<string>,
+  kind: PopupKind,
   isSubmitted: (source: WeeklyReport, slot: DueSlot) => boolean,
 ): SlotChoice | null {
   for (const candidate of candidates) {
+    if (dismissed.has(popupDismissKey(kind, candidate))) continue;
     if (candidate.weekStart === weekStart) {
       if (!isSubmitted(report, candidate)) return candidate;
       continue;
@@ -112,6 +121,9 @@ export default function App() {
     null,
   );
   const [blockedWeeks, setBlockedWeeks] = useState<string[]>([]);
+  const [dismissedPopups, setDismissedPopups] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [loadFailed, setLoadFailed] = useState(false);
   const [nowTick, setNowTick] = useState(() => clockNow().getTime());
   const reportRef = useRef(report);
@@ -302,9 +314,11 @@ export default function App() {
       report,
       handoverReport,
       blockedWeeks,
+      dismissedPopups,
+      "repaint",
       (source, slot) => source.shifts[slot.shift].repaint[slot.day].submitted,
     );
-  }, [nowTick, report, handoverReport, weekStart, blockedWeeks]);
+  }, [nowTick, report, handoverReport, weekStart, blockedWeeks, dismissedPopups]);
 
   const dueMeeting = useMemo(() => {
     void nowTick;
@@ -314,9 +328,11 @@ export default function App() {
       report,
       handoverReport,
       blockedWeeks,
+      dismissedPopups,
+      "meeting",
       (source, slot) => source.shifts[slot.shift].meeting[slot.day].submitted,
     );
-  }, [nowTick, report, handoverReport, weekStart, blockedWeeks]);
+  }, [nowTick, report, handoverReport, weekStart, blockedWeeks, dismissedPopups]);
 
   const dueRepaintOpen =
     dueRepaint && !dueRepaint.pendingLoad ? dueRepaint : null;
@@ -325,6 +341,25 @@ export default function App() {
     dueRepaint?.pendingLoad || !dueMeeting || dueMeeting.pendingLoad
       ? null
       : dueMeeting;
+
+  const dismissBlockingPopup = useCallback(() => {
+    if (dueRepaintOpen) {
+      setDismissedPopups((prev) => {
+        const next = new Set(prev);
+        next.add(popupDismissKey("repaint", dueRepaintOpen));
+        return next;
+      });
+      return;
+    }
+    if (dueMeetingOpen) {
+      setDismissedPopups((prev) => {
+        const next = new Set(prev);
+        next.add(popupDismissKey("meeting", dueMeetingOpen));
+        return next;
+      });
+    }
+  }, [dueRepaintOpen, dueMeetingOpen]);
+
   const blockingSlot = dueRepaint ?? dueMeeting;
   const blockingKind = dueRepaintOpen
     ? "repaint"
@@ -814,6 +849,7 @@ export default function App() {
               weekStart: dueRepaintOpen.weekStart,
             })
           }
+          onExit={dismissBlockingPopup}
         />
       ) : null}
 
@@ -841,6 +877,7 @@ export default function App() {
               weekStart: dueMeetingOpen.weekStart,
             })
           }
+          onExit={dismissBlockingPopup}
         />
       ) : null}
 
